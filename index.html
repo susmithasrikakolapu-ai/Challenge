@@ -1,0 +1,252 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Beauty Products — Demo</title>
+
+  <!-- Tailwind CDN (quick demo) -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <style>
+    /* Small custom style for the toast */
+    #toast {
+      transition: transform .25s ease, opacity .25s ease;
+    }
+  </style>
+</head>
+<body class="bg-gray-50 text-gray-800">
+
+  <header class="bg-white shadow-sm sticky top-0 z-20">
+    <div class="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
+      <div>
+        <h1 class="text-2xl font-bold">GlowBox — Beauty Shop Demo</h1>
+        <p class="text-sm text-gray-500">Curated essentials for skin, hair & makeup</p>
+      </div>
+
+      <div class="flex items-center gap-3">
+        <label class="relative">
+          <input id="search" type="search" placeholder="Search products..." 
+                 class="pl-10 pr-3 py-2 rounded-lg border border-gray-200 bg-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-200" />
+          <svg class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" viewBox="0 0 24 24" fill="none">
+            <path d="M21 21l-4.35-4.35" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            <circle cx="11" cy="11" r="6" stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none"/>
+          </svg>
+        </label>
+
+        <div class="flex items-center gap-2">
+          <select id="categoryFilter" class="px-3 py-2 rounded-lg border bg-white">
+            <option value="">All categories</option>
+            <option value="skincare">Skincare</option>
+            <option value="hair">Hair</option>
+            <option value="makeup">Makeup</option>
+            <option value="fragrance">Fragrance</option>
+          </select>
+          <button id="clearFilters" title="Clear filters" class="px-3 py-2 rounded-lg border bg-white">Clear</button>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-6xl mx-auto px-4 py-8">
+    <!-- Summary / controls -->
+    <div class="flex items-center justify-between mb-6">
+      <div>
+        <p class="text-sm text-gray-600">Showing <span id="count">0</span> products</p>
+      </div>
+      <div class="flex items-center gap-3">
+        <label class="text-sm text-gray-600">Sort:</label>
+        <select id="sort" class="px-3 py-2 rounded-lg border bg-white">
+          <option value="default">Featured</option>
+          <option value="price-asc">Price: Low → High</option>
+          <option value="price-desc">Price: High → Low</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- Products grid -->
+    <section id="productGrid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+      <!-- Product cards inserted by JS -->
+    </section>
+
+    <!-- Empty state -->
+    <div id="emptyState" class="hidden mt-12 text-center text-gray-500">
+      No products matched your filters.
+    </div>
+  </main>
+
+  <!-- Simple toast for Add to Cart -->
+  <div id="toast" class="fixed bottom-6 right-6 bg-white border rounded-lg p-4 shadow-lg opacity-0 pointer-events-none">
+    <div id="toastText" class="text-sm">Added to cart</div>
+  </div>
+
+  <script>
+    // Demo product data
+    const PRODUCTS = [
+      {
+        id: "p1",
+        name: "Hydrating Face Serum",
+        price: 799,
+        category: "skincare",
+        rating: 4.8,
+        img: "https://images.unsplash.com/photo-1582719478149-4f6a69b2f6ec?w=800&q=60&auto=format&fit=crop"
+      },
+      {
+        id: "p2",
+        name: "Nourish Hair Oil",
+        price: 499,
+        category: "hair",
+        rating: 4.6,
+        img: "https://images.unsplash.com/photo-1580281657521-525b5b4c6d96?w=800&q=60&auto=format&fit=crop"
+      },
+      {
+        id: "p3",
+        name: "Velvet Matte Lipstick",
+        price: 699,
+        category: "makeup",
+        rating: 4.4,
+        img: "https://images.unsplash.com/photo-1543165792-6d6b1b6a3d5e?w=800&q=60&auto=format&fit=crop"
+      },
+      {
+        id: "p4",
+        name: "Daily Sunscreen SPF 50",
+        price: 299,
+        category: "skincare",
+        rating: 4.7,
+        img: "https://images.unsplash.com/photo-1522335789203-aabd1fc54bc9?w=800&q=60&auto=format&fit=crop"
+      },
+      {
+        id: "p5",
+        name: "Repairing Night Cream",
+        price: 999,
+        category: "skincare",
+        rating: 4.9,
+        img: "https://images.unsplash.com/photo-1595088702371-3d2f13a7f1b4?w=800&q=60&auto=format&fit=crop"
+      },
+      {
+        id: "p6",
+        name: "Floral Eau de Parfum",
+        price: 1399,
+        category: "fragrance",
+        rating: 4.5,
+        img: "https://images.unsplash.com/photo-1518444026351-0a62d7f0b7ce?w=800&q=60&auto=format&fit=crop"
+      }
+    ];
+
+    // DOM refs
+    const grid = document.getElementById('productGrid');
+    const search = document.getElementById('search');
+    const categoryFilter = document.getElementById('categoryFilter');
+    const clearFilters = document.getElementById('clearFilters');
+    const countEl = document.getElementById('count');
+    const sortSelect = document.getElementById('sort');
+    const emptyState = document.getElementById('emptyState');
+    const toast = document.getElementById('toast');
+    const toastText = document.getElementById('toastText');
+
+    // Render product card
+    function productCard(p) {
+      const div = document.createElement('article');
+      div.className = 'bg-white rounded-xl shadow-sm overflow-hidden flex flex-col';
+      div.innerHTML = `
+        <img src="${p.img}" alt="${escapeHtml(p.name)}" class="h-48 w-full object-cover">
+        <div class="p-4 flex-1 flex flex-col">
+          <h3 class="text-lg font-semibold mb-1">${escapeHtml(p.name)}</h3>
+          <p class="text-sm text-gray-500 mb-2 capitalize">${escapeHtml(p.category)} • ${p.rating} ★</p>
+          <div class="mt-auto flex items-center justify-between">
+            <div>
+              <div class="text-xl font-bold">₹${p.price.toLocaleString('en-IN')}</div>
+              <div class="text-xs text-gray-500">Incl. taxes</div>
+            </div>
+            <div class="flex flex-col gap-2">
+              <button data-id="${p.id}" class="addCartBtn px-4 py-2 rounded-md bg-indigo-600 text-white text-sm">Add</button>
+              <button data-id="${p.id}" class="viewBtn px-4 py-2 rounded-md border text-sm">View</button>
+            </div>
+          </div>
+        </div>
+      `;
+      return div;
+    }
+
+    // Basic XSS-safe escape
+    function escapeHtml(unsafe) {
+      return String(unsafe)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+    }
+
+    // Render grid with optional list
+    function render(list = PRODUCTS) {
+      grid.innerHTML = '';
+      if (!list.length) {
+        emptyState.classList.remove('hidden');
+      } else {
+        emptyState.classList.add('hidden');
+        list.forEach(p => grid.appendChild(productCard(p)));
+      }
+      countEl.textContent = list.length;
+      attachCardListeners();
+    }
+
+    // Filter logic (search + category)
+    function applyFilters() {
+      const q = search.value.trim().toLowerCase();
+      const cat = categoryFilter.value;
+      let filtered = PRODUCTS.filter(p => {
+        const matchesQ = p.name.toLowerCase().includes(q) || p.category.toLowerCase().includes(q);
+        const matchesCat = cat ? p.category === cat : true;
+        return matchesQ && matchesCat;
+      });
+
+      // Sorting
+      const sortVal = sortSelect.value;
+      if (sortVal === 'price-asc') filtered.sort((a,b) => a.price - b.price);
+      if (sortVal === 'price-desc') filtered.sort((a,b) => b.price - a.price);
+
+      render(filtered);
+    }
+
+    // Attach listeners for buttons inside cards
+    function attachCardListeners() {
+      const addBtns = document.querySelectorAll('.addCartBtn');
+      addBtns.forEach(btn => {
+        btn.onclick = () => {
+          const id = btn.dataset.id;
+          const product = PRODUCTS.find(p => p.id === id);
+          showToast(`Added "${product.name}" to cart`);
+        };
+      });
+
+      const viewBtns = document.querySelectorAll('.viewBtn');
+      viewBtns.forEach(btn => {
+        btn.onclick = () => {
+          const id = btn.dataset.id;
+          const p = PRODUCTS.find(x => x.id === id);
+          alert(`${p.name}\n\nCategory: ${p.category}\nPrice: ₹${p.price}\nRating: ${p.rating} ★`);
+        };
+      });
+    }
+
+    // Toast helper
+    let toastTimeout = null;
+    function showToast(text) {
+      toastText.textContent = text;
+      toast.style.opacity = '1';
+      toast.style.transform = 'translateY(0)';
+      toast.classList.remove('pointer-events-none');
+      clearTimeout(toastTimeout);
+      toastTimeout = setTimeout(() => {
+        toast.style.opacity = '0';
+        toast.style.transform = 'translateY(12px)';
+        toast.classList.add('pointer-events-none');
+      }, 2200);
+    }
+
+    // Event bindings
+    search.addEventListener('input', applyFilters);
+    categoryFilter.addEventListener('change', applyFilters);
+    sortSelect.addEventListener('change', applyFilters);
+    c
